@@ -1093,13 +1093,15 @@ So just to return to our tale of two errors, the silent failure example. Well so
 <li>You won’t always know what assumptions you’re making implicitly immediately.</li>
 <li>But! when your code breaks, add a <code>stopifnot</code> or <code>assert</code> to catch it next time.</li>
 <li>Don’t feel the need to check <em>everything</em>, just the most important parts.</li>
+<li>In R, the <code>assertthat</code> package <a href="#//resources">[6]</a> can help.</li>
 </ul>
 <aside class="notes">
 <div style="font-size: 0.6em">
 <p>Here are some further tips on defensive programming.</p>
 <p>The first thing is, unfortunately, you don’t always know what assumptions you’re actually making. There are lots of ways to break code.</p>
 <p>But when you do notice a problem and figure out the root cause, you can go back and add a <code>stopifnot</code> or <code>assert</code> to catch it next time. That way your code gets more robust.</p>
-And a final point, don’t feel the need to check every tiny assumptions. Just the most important ones, and the ones that end up catching you.
+<p>Don’t feel the need to check every tiny assumptions. Just the most important ones, and the ones that end up catching you.</p>
+Finally, if you want to branch beyond <code>stopifnot</code>, the <code>assertthat</code> package has some great functions that help. But you can also just use <code>if</code> statements when it makes sense.
 </div>
 </aside>
 </section></section>
@@ -1108,17 +1110,18 @@ And a final point, don’t feel the need to check every tiny assumptions. Just t
 <ul>
 <li>Automated testing. See:
 <ul>
-<li>Wikipedia on <strong>unit testing</strong> <a href="#//resources">[6]</a></li>
-<li>The <strong><code>testthat</code></strong> package in R <a href="#//resources">[7]</a></li>
-<li>The <strong><code>pytest</code></strong> framework for Python <a href="#//resources">[8]</a></li>
+<li>Wikipedia on <strong>unit testing</strong> <a href="#//resources">[7]</a></li>
+<li>The <strong><code>testthat</code></strong> package in R <a href="#//resources">[8]</a></li>
+<li>The <strong><code>pytest</code></strong> framework for Python <a href="#//resources">[9]</a></li>
 </ul></li>
+<li>Not reinventing the wheel. If a mature package has a function you need, use that rather than write your own.</li>
 <li>Internal peer review:
 <ul>
 <li>Can a coauthor or a friend <strong>read your code</strong> for you?</li>
 </ul></li>
 <li>Automated checking for common bugs:
 <ul>
-<li>The <strong><code>pylint</code></strong> program can do this for Python <a href="#//resources">[9]</a>.</li>
+<li>The <strong><code>pylint</code></strong> program can do this for Python <a href="#//resources">[10]</a>.</li>
 <li>The <strong><code>lintr</code></strong> package does a little bit of this <a href="#//resources">[3]</a>.</li>
 </ul></li>
 </ul>
@@ -1126,6 +1129,7 @@ And a final point, don’t feel the need to check every tiny assumptions. Just t
 <div style="font-size: 0.6em">
 <p>So those are the two strategies, clean code and defensive programming.</p>
 <p>There are a few more that I don’t have time to go into. The main ones are automated testing, which means writing programs to check your programs. There are lot of resources on this, some are given here.</p>
+<p>It is good to not reinvent the wheel. If a good package has a function you need, use that rather than write your own.</p>
 <p>Another idea is to do some internal peer review by asking a coauthor to read your code. Of course, you’ll probably want the code to be nice and clean before you do!</p>
 Finally there are some cool and useful tools around that can spot some bugs automatically. They aren’t that smart but they are better than nothing, I’ve listed them.
 </div>
@@ -1152,7 +1156,7 @@ And that’s all, thank you everyone. And on the last page I have some resources
 <section id="resources" class="title-slide slide level1">
 <h1>Resources</h1>
 <div style="text-align: left; font-size: 0.6em">
-<p>[1] Wickham, H., (2021). <em>The tidyverse Style Guide</em>. Published online at <a href="https://style.tidyverse.org/">https://style.tidyverse.org/</a>. <br /> [2] van Rossum, G., Warsaw, B., and Coghlan, N. PEP 8—Style Guide for Python Code. <a href="https://www.python.org/dev/peps/pep-0008/">https://www.python.org/dev/peps/pep-0008/</a>, last accessed 2021-02-16. <br /> [3] Hester, J., Angly, F., and Hyde, R. (2020). lintr: A ‘Linter’ for R Code. R package version 2.0.1. <a href="https://CRAN.R-project.org/package=lintr">https://CRAN.R-project.org/package=lintr</a>. <br /> [4] Rocholl, J. and Lee, I., and other contributors. pycodestyle—Python Style Guide Checker. <a href="https://pypi.org/project/pycodestyle/">https://pypi.org/project/pycodestyle/</a>. <br /> [5] Thomas, D., Hunt, A. (2019). <em>The Pragmatic Programmer: Your Journey to Mastery</em> (20th ed.). Addison-Wesley Professional, Boston, MA. <br /> [6] Wikipedia contributors. (2021, January 23). Unit Testing. In <em>Wikipedia, The Free Encyclopedia</em>. Retrieved 00:49, February 17, 2021, from <a href="https://en.wikipedia.org/w/index.php?title=Unit_testing&amp;oldid=1002146431" class="uri">https://en.wikipedia.org/w/index.php?title=Unit_testing&amp;oldid=1002146431</a><br /> [7] Wickham, H., Bryan, J. (2021). <em>R Packages</em> (2nd ed.). Published online at <a href="https://r-pkgs.org/index.html">https://r-pkgs.org/index.html</a>. <br /> [8] Krekel, H., and other contributors, (2021). pytest. <a href="https://docs.pytest.org/en/stable/">https://docs.pytest.org/en/stable/</a>. <br /> [9] Logilab, (2021). pylint. <a href="https://www.pylint.org/">https://www.pylint.org/</a>.</p>
+<p>[1] Wickham, H., (2021). <em>The tidyverse Style Guide</em>. Published online at <a href="https://style.tidyverse.org/">https://style.tidyverse.org/</a>. <br /> [2] van Rossum, G., Warsaw, B., and Coghlan, N. PEP 8—Style Guide for Python Code. <a href="https://www.python.org/dev/peps/pep-0008/">https://www.python.org/dev/peps/pep-0008/</a>, last accessed 2021-02-16. <br /> [3] Hester, J., Angly, F., and Hyde, R. (2020). lintr: A ‘Linter’ for R Code. R package version 2.0.1. <a href="https://CRAN.R-project.org/package=lintr">https://CRAN.R-project.org/package=lintr</a>. <br /> [4] Rocholl, J. and Lee, I., and other contributors. pycodestyle—Python Style Guide Checker. <a href="https://pypi.org/project/pycodestyle/">https://pypi.org/project/pycodestyle/</a>. <br /> [5] Thomas, D., Hunt, A. (2019). <em>The Pragmatic Programmer: Your Journey to Mastery</em> (20th ed.). Addison-Wesley Professional, Boston, MA. <br /> [6] Wickham, H. (2019). assertthat: Easy Pre and Post Assertions. R package version 0.2.1. <a href="https://CRAN.R-project.org/package=assertthat" class="uri">https://CRAN.R-project.org/package=assertthat</a>. <br /> [7] Wikipedia contributors. (2021, January 23). Unit Testing. In <em>Wikipedia, The Free Encyclopedia</em>. Retrieved 00:49, February 17, 2021, from <a href="https://en.wikipedia.org/w/index.php?title=Unit_testing&amp;oldid=1002146431" class="uri">https://en.wikipedia.org/w/index.php?title=Unit_testing&amp;oldid=1002146431</a><br /> [8] Wickham, H., Bryan, J. (2021). <em>R Packages</em> (2nd ed.). Published online at <a href="https://r-pkgs.org/index.html">https://r-pkgs.org/index.html</a>. <br /> [9] Krekel, H., and other contributors, (2021). pytest. <a href="https://docs.pytest.org/en/stable/">https://docs.pytest.org/en/stable/</a>. <br /> [10] Logilab, (2021). pylint. <a href="https://www.pylint.org/">https://www.pylint.org/</a>.</p>
 </div>
 </section>
     </div>

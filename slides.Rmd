@@ -762,6 +762,7 @@ print(bic)
 - But! when your code breaks, add a `stopifnot` or `assert` to catch it next
   time.
 - Don't feel the need to check *everything*, just the most important parts.
+- In R, the `assertthat` package [[6]](#/resources) can help.
 
 <aside class="notes">
   <div style="font-size: 0.6em">
@@ -771,20 +772,23 @@ print(bic)
 
   But when you do notice a problem and figure out the root cause, you can go back and add a `stopifnot` or `assert` to catch it next time. That way your code gets more robust.
 
-  And a final point, don't feel the need to check every tiny assumptions. Just the most important ones, and the ones that end up catching you.
+  Don't feel the need to check every tiny assumptions. Just the most important ones, and the ones that end up catching you.
+
+  Finally, if you want to branch beyond `stopifnot`, the `assertthat` package has some great functions that help. But you can also just use `if` statements when it makes sense.
   </div>
 </aside>
 
 # Other strategies
 
 - Automated testing. See:
-  - Wikipedia on **unit testing** [[6]](#/resources)
-  - The **`testthat`** package in R [[7]](#/resources)
-  - The **`pytest`** framework for Python [[8]](#/resources)
+  - Wikipedia on **unit testing** [[7]](#/resources)
+  - The **`testthat`** package in R [[8]](#/resources)
+  - The **`pytest`** framework for Python [[9]](#/resources)
+- Not reinventing the wheel. If a mature package has a function you need, use that rather than write your own.
 - Internal peer review:
   - Can a coauthor or a friend **read your code** for you?
 - Automated checking for common bugs:
-  - The **`pylint`** program can do this for Python [[9]](#/resources).
+  - The **`pylint`** program can do this for Python [[10]](#/resources).
   - The **`lintr`** package does a little bit of this [[3]](#/resources).
 
 <aside class="notes">
@@ -792,6 +796,8 @@ print(bic)
   So those are the two strategies, clean code and defensive programming.
 
   There are a few more that I don't have time to go into. The main ones are automated testing, which means writing programs to check your programs. There are lot of resources on this, some are given here.
+
+  It is good to not reinvent the wheel. If a good package has a function you need, use that rather than write your own.
 
   Another idea is to do some internal peer review by asking a coauthor to read your code. Of course, you'll probably want the code to be nice and clean before you do!
 
@@ -831,8 +837,9 @@ Sadly, though, there will always be more bugs. **If you find a way to avoid them
   [3] Hester, J., Angly, F., and Hyde, R. (2020). lintr: A 'Linter' for R Code. R package version 2.0.1. [https://CRAN.R-project.org/package=lintr](https://CRAN.R-project.org/package=lintr). <br />
   [4] Rocholl, J. and Lee, I., and other contributors. pycodestyle---Python Style Guide Checker. [https://pypi.org/project/pycodestyle/](https://pypi.org/project/pycodestyle/). <br />
   [5] Thomas, D., Hunt, A. (2019). *The Pragmatic Programmer: Your Journey to Mastery* (20th ed.). Addison-Wesley Professional, Boston, MA. <br />
-  [6] Wikipedia contributors. (2021, January 23). Unit Testing. In *Wikipedia, The Free Encyclopedia*. Retrieved 00:49, February 17, 2021, from https://en.wikipedia.org/w/index.php?title=Unit_testing&oldid=1002146431<br />
-  [7] Wickham, H., Bryan, J. (2021). *R Packages* (2nd ed.). Published online at [https://r-pkgs.org/index.html](https://r-pkgs.org/index.html). <br />
-  [8] Krekel, H., and other contributors, (2021). pytest. [https://docs.pytest.org/en/stable/](https://docs.pytest.org/en/stable/). <br />
-  [9] Logilab, (2021). pylint. [https://www.pylint.org/](https://www.pylint.org/).
+  [6] Wickham, H. (2019). assertthat: Easy Pre and Post Assertions. R package version 0.2.1. https://CRAN.R-project.org/package=assertthat. <br />
+  [7] Wikipedia contributors. (2021, January 23). Unit Testing. In *Wikipedia, The Free Encyclopedia*. Retrieved 00:49, February 17, 2021, from https://en.wikipedia.org/w/index.php?title=Unit_testing&oldid=1002146431<br />
+  [8] Wickham, H., Bryan, J. (2021). *R Packages* (2nd ed.). Published online at [https://r-pkgs.org/index.html](https://r-pkgs.org/index.html). <br />
+  [9] Krekel, H., and other contributors, (2021). pytest. [https://docs.pytest.org/en/stable/](https://docs.pytest.org/en/stable/). <br />
+  [10] Logilab, (2021). pylint. [https://www.pylint.org/](https://www.pylint.org/).
 </div>
