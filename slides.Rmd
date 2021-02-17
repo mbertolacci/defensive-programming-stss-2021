@@ -1,0 +1,838 @@
+---
+title: 'Defensive Programming: How to (Help) Shield Your Code From Error'
+author: "Michael Bertolacci<br />michael_bertolacci@uow.edu.au<br />Centre for Environmental Informatics, UOW, Australia"
+date: 2021-02-17
+output:
+  revealjs::revealjs_presentation:
+    self_contained: false
+    highlight: kate
+    theme: simple
+    slide_level: 2
+    reveal_plugins: ["notes"]
+    reveal_options:
+      slideNumber: true
+      navigationMode: default
+---
+
+## Who I am
+
+```{r, echo = FALSE}
+library(ggplot2)
+library(dplyr, warn.conflicts = FALSE)
+
+set.seed(20210216)
+
+theme_set(theme_bw())
+```
+
+<style>
+.container {
+  display: flex;
+}
+.col {
+  flex: 1;
+}
+
+.reveal section img {
+  border: 0;
+}
+
+div.sourceCode {
+  margin: 0;
+}
+
+.largerText {
+  font-size: 1.5em !important;
+}
+
+.reveal pre {
+  width: 95%;
+}
+
+.reveal pre code {
+  max-height: 550px;
+}
+
+strong {
+  color: #edb109;
+}
+
+strong a {
+  color: #d6a313 !important;
+}
+</style>
+
+A postdoc at the University of Wollongong, working on applied spatio-temporal statistical problems with Noel Cressie and Andrew Zammit-Mangion.
+
+Before that, I was a PhD student at the University of Western Australia.
+
+**Before that, I was a software engineer for 10 years.**
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So just some quick background on me, I am a postdoc at the University of Wollongong, I work with Noel Cressie and Andrew Zammit-Mangion, who you will hear from at various times during this symposium.
+
+  Before that I was a PhD student at UWA.
+
+  But before that, I was a software engineer for 10 years. And really this talk is about software engineering. These days as students and practitioners in spatio-temporal statistics we spend a lot of time programming. There are a lot of lessons to be learned from the field of software engineering, and I want to share some of those.
+
+  In a way this is a bit tangential to the topic of the symposium, but in another way it is not. That's because the computational burden is relatively high in spatio-temporal statistics compared to other sub-disciplines, so the code we write is pretty complicated sometimes.
+  </div>
+</aside>
+
+## Assumed programming knowledge
+
+- You have programmed before.
+- You can read basic R or Python.
+
+## Motivation
+
+![A meme](images/meme.png)
+
+<aside class="notes">
+  This image serves as a motivation for the talk. I have had this happen to me, maybe you have to. Well actually for me it was Table 4, but you get the idea. The specific bug doesn't matter either. It's the vibe.
+</aside>
+
+---
+
+There are several things that can (should?) keep a statistician from falling asleep at night.
+
+One of those is Simpson's paradox:
+
+```{r, echo = FALSE, fig.width = 5, fig.height = 3.5}
+x <- rnorm(128)
+simpson_df <- bind_rows(
+  data.frame(x = x - 4, y = 4 + x + rnorm(length(x), sd = 0.5)),
+  data.frame(x = x - 2, y = 2 + x + rnorm(length(x), sd = 0.5)),
+  data.frame(x = x + 0, y = 0 + x + rnorm(length(x), sd = 0.5)),
+  data.frame(x = x + 2, y = -2 + x + rnorm(length(x), sd = 0.5)),
+  data.frame(x = x + 4, y = -4 + x + rnorm(length(x), sd = 0.5))
+)
+
+ggplot(simpson_df, aes(x, y)) +
+  geom_point() +
+  geom_abline(
+    intercept = c(0, -8, -4, 0, 4, 8),
+    slope = c(-1, 1, 1, 1, 1, 1),
+    linetype = c('solid', rep('dashed', 5)),
+    colour = c('red', rep('blue', 5)),
+    size = 1
+  )
+```
+
+**Another is having bugs in your code.**
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  There are a few things that can keep a statistician awake at night when they should be sleeping. Actually there are a lot of things, but here are two.
+
+  One of those is Simpson's paradox. This little plot should send shivers down your spine - look how in each of the five subgroups the trend goes one way, but if you look at the overall trend it's the opposite. Let's hope you know about these subgroups if you're going to do causal inference...
+
+  But that's not the topic of the talk. Because another thing that should keep a statistician up at night is the prospect of having bugs in your code.
+  </div>
+</aside>
+
+## Story time
+
+Reinhart, C, M.; Rogoff, K. S. (2010). Growth in a Time of Debt. *American Economic Review*. 100 (2): 573–78. doi:10.1257/aer.100.2.573.
+
+Their conclusions led several governments to implement financial austerity programs.
+
+A student reproducing the work found that they'd made an error in a formula in their Excel spreadsheet, invalidating some of their empirical claims.
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So there's a infamous example of this. This economics paper by Reinhart and Rogoff in 2010 about the relationship between growth and debt partially led many countries to implement so-called austerity policies.
+
+  Later, a student found that the authors had a small error in a formula that led to a wrong result.
+
+  You might think this is just a problem with Excel, but...
+  </div>
+</aside>
+
+## Story time
+
+My first research project...
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  - The first time I ever did research was in computer science, back in my undergrad.
+  - I was trying to reproduce the results of a published paper. This was in computer science, but the specific topic doesn't matter. I had implemented their methods, and some of the numbers I was getting in a simulation study were different to the authors.
+  - So I asked the authors for their own code so I could compare. They kindly obliged, and it turned out they had a bug in one of their methods. In fact I had made the same error in the same method earlier but, luckily, I'd noticed it. They weren't so lucky.
+  - Perhaps it doesn't matter in the grand scheme of things, but one part of their results were wrong, a little blip in science. I did tell them but nothing really came of it---I'm not blaming them---and I left it.
+  - But it's just sad, really, to have a little bit of science wrong. I have seen this again since.
+  - In all cases the work was peer-reviewed.
+  - How does this happen?
+  </div>
+</aside>
+
+
+## Peer review - the crown jewel of science
+
+We peer review each other's work prior to publication.
+
+- Keeps us honest
+- Encourages rigour
+- Ensures the work is useful
+- **Catches errors**
+
+But it generally only applies to the written part of the work. If the numbers reported look plausible, there's (usually) an assumption that they are computed correctly.
+
+<span style="font-size: 1.5em">Code is a blind spot for peer review.</span>
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Here's my opinion on the matter.
+
+  Peer review is the crown jewel of science. It keeps us honest, it's a check on just making whatever claim you want. It encourages rigour, mathematical and otherwise. It ensures the work is worthy of publishing in that it is useful at all. And, most importantly, it provides a final line of defense against errors.
+
+  But, to me, there is one key limitation of peer review. Which is that it applies only to the written part of the work. While people often release their code these days, it's almost never subject to peer review. If the numbers in the work look plausible, there's usually an assumption that they were at least computed correctly.
+
+  So you could say that code is a blind spot for peer review.
+  </div>
+</aside>
+
+## How big is the blind spot?
+
+It's hard to be objective about this, but take two examples:
+
+- One (short) chapter of my PhD thesis:
+  - Lines of LaTeX: \~300
+  - Lines of code: \~1,400 - **4.5x more**
+- Paper submitted based on a longer chapter:
+  - Lines of LaTeX: \~1000
+  - Lines of code: \~13,000 - **13x more**
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Now we might then want to ask how big is the blind spot. There is probably no good way to quantify this, but I thought I'd make a small attempt.
+
+  So I took a look at two chapters of my PhD thesis. I counted the number of lines of latex in the chapter, and then the number of lines of code. This is probably an apples and oranges comparison, but it's just meant to be a heuristic.
+
+  So for one short chapter there were 300 lines of latex, and around 1400 lines of code. 4.5 times as much
+
+  For a longer chapter, there were around 1,000 lines of latex, 13,000 lines of code. That is a pretty complex method so the code is pretty long. 13 times as much.
+
+  So here the unreviewed component is pretty big! I'm pretty sure there are no major bugs, but it's always a worry.
+
+  So hopefully that's a somewhat convincing argument for why you should be thinking about this.
+  </div>
+</aside>
+
+----
+
+Bugs aren't just a problem in academic work. Professional software developers invest huge effort into avoiding and fixing bugs.
+
+Some gold standard strategies the best teams use:
+
+- **Peer review**: software is not released until the code has been read by multiple people
+- **Dedicated testing teams**: you can get paid to break code, all day! https://www.seek.com.au/software-tester-jobs
+
+<br />
+
+<span style="font-size: 1.5em">Most academics don't get to use these strategies...</span>
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So bugs should be a huge concern in academic work.
+
+  But they are also a concern in professional software work. Software engineers invest huge effort into avoiding and fixing bugs.
+
+  There are lots and lots of strategies. But two gold-standard strategies, used by the best teams are peer review and dedicated testing teams.
+
+  In peer review, the software is not released until the code has been read by multiple people. Every time a change is made to the code, that is reviewed too. It's similar to academic peer review.
+
+  Lots of companies have dedicated testing teams. People actually get paid to break code, all day, every day! They don't even have to write the code.
+
+  Unfortunately, these are not an option for most academics. Most of the code is worked on by one person and no-one else looks at it.
+  </div>
+</aside>
+
+----
+
+There are some strategies that an individual programmer can use.
+
+We'll cover two:
+
+- **Strategy 1: Make your code easier to understand**
+- **Strategy 2: Defensive programming**
+
+The main one we won't cover is automated testing.
+
+<aside class="notes">
+  So what academics when coding need are strategies to avoid bugs that work for an individual, not a team.
+
+  I'll talk about two. The first is making your code easier to understand. And the second is called defensive programming, I'll define that later.
+
+  There's one other major one that I won't cover here, which is automated testing. This is worthy of its own talk, but I'll provide some resources at the end.
+
+  Now for the two strategies we will talk about, there's a common vein. And it comes back to the underlying cause of all bugs...
+</aside>
+
+## Every bug can be traced back to a wrong assumption.
+
+<div style="text-align: left;">
+  The person who wrote the code made the assumption.<br />
+  &rArr; You wrote the code.<br />
+  &rArr; **You caused the bug :(**
+</div>
+
+<br />
+
+What you need are ways to:
+
+- *Make your assumptions more obvious* so you avoid making wrong ones (Strategy 1).
+- *Make it so you know when an assumption is violated* so you can find and fix the error (Strategy 2).
+
+<aside class="notes">
+  So let's think about how bugs arise. And there's some bad news.
+
+  Ultimately, every bug can be traced back to a wrong assumption. It might be about the input data, or it might be an assumption in one of the steps. Sometimes the assumptions isn't on your radar when you wrote the code, such as that there might be missing values in the data.
+
+  Now of course, the person who wrote the code made the assumption. And, in most cases, you wrote the code. So, sadly, you caused the bug.
+
+  So what you need are strategies to help yourself. You need a way to make your assumptions more obvious, so you avoid making wrong ones. And for the assumptions you do know about, you need to know when they are violated.
+
+  That's what the two strategies are all about.
+</aside>
+
+# Strategy 1: Make your code easier to understand
+
+Code that is hard to read is hard to understand.
+
+You should strive to make your code clean and readable.
+
+This helps:
+
+- **You** now, when you debug the code
+- **You** in the future when you read the code
+- **Everyone** who reads the code
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So the first strategy is to make your code easier to understand.
+
+  You should strive to make your code clean and readable, we'll talk about that.
+
+  This will help you in two ways. It will help you now when you need to write the code and debug it. And it will help you in future, maybe months or years later, when you look at the code and try to figure out what the heck you were doing. I'll show an example of that later.
+
+  It will also, obviously, help anyone else who reads the code.
+  </div>
+</aside>
+
+## The DRY principle
+
+Don't Repeat Yourself.
+
+$$
+  \textrm{RMS}(x_1, \ldots, x_n) = \sqrt{\frac{1}{n} \sum_{i = 1}^n x_i^2}
+$$
+
+::: {.container}
+:::: {.col}
+```py
+rms1 = np.sqrt(np.mean(
+  np.square(error1)
+))
+rms2 = np.sqrt(np.mean(
+  np.square(error2)
+))
+```
+::::
+:::: {.col}
+```py
+def rms(x):
+    '''Return the root mean square of
+    the vector x'''
+    return np.sqrt(np.mean(
+      np.square(x)
+    ))
+
+
+rms1 = rms(error1)
+rms2 = rms(error2)
+```
+::::
+:::
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  There's is a principle called the D R Y principle, it stands for don't repeat yourself. That's don't repeat yourself, in case you didn't hear me the first time.
+
+  Here's an example in Python. On the left we are computing the root-mean-square of two variables, e1 and e2. There's no bug here, but there's lots of repetition, which makes the code harder to read. On the right I've moved some code into a function, so now there's no repetition. And I think it's easier to read this way.
+  </div>
+</aside>
+
+## Follow a style guide
+
+Style guides list rules to follow when laying out your code.
+
+You should start from a publicly available guide.
+
+**For R, you can follow the Tidyverse style guide [[1]](#/resources).**
+
+**For Python, the standard is called PEP 8 [[2]](#/resources).**
+
+You can tweak the guidelines to suit you, but not following some style guide is like writing a paper with inconsistent grammar, or using two different citation styles in the same document (Bertolacci, 2020).
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  One of the best things you can do to make clean code is to follow a style guide. Styles guides list rules for how to lay out your code. Things like, how to indent your code, don't have lines that are too long, put spaces around operators, and so on.
+
+  The easiest thing is to start from a publicly available guide, I've listed one for R and one for Python.
+
+  You can tweak the guidelines if you have specific preferences, just be consistent. Not following a style guide is like writing a paper with bad grammer, or switchihg between citation styles in the same document. It just makes things harder to read.
+  </div>
+</aside>
+
+## R style example
+
+::: {.container}
+:::: {.col}
+Non-compliant:
+
+```r
+y <- x*2
+if(y > 2) {
+  z <- y + 2
+}
+sqrt_z <- sqrt (z)
+```
+::::
+:::: {.col}
+Compliant:
+
+```r
+y <- x * 2
+if (y > 2) {
+  z <- y + 2
+}
+sqrt_z <- sqrt(z)
+```
+::::
+:::
+
+The R package [`lintr`](https://github.com/jimhester/lintr) [[3]](#/resources) can check your code automatically:
+
+```
+example.R:1:7: style: Put spaces around all infix operators.
+y <- x*2
+     ~^~
+example.R:2:3: style: Place a space before left parenthesis, except in a function call.
+if(y > 2) {
+  ^
+example.R:5:11: style: Remove spaces before the left parenthesis in a function call.
+sqrt_z <- sqrt (z)
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Here's an example in R. On the top left there's an example that doesn't follow the tidyverse guide. On the right it does.
+
+  There's a great R package called lintr which can help you by checking your code automatically. Here's the output when run on the program on the left.
+
+  It tells you which lines don't comply. Some editors, like RStudio or vim, can run this for you. Eventually, writing compliant code becomes second nature.
+  </div>
+</aside>
+
+## Python style example
+
+::: {.container}
+:::: {.col}
+Non-compliant:
+
+```py
+y = x*2
+if y> 2:
+   z = y + 2
+sqrt_z = sqrt (z)
+```
+::::
+:::: {.col}
+Compliant:
+
+```py
+y = x * 2
+if y > 2:
+    z = y + 2
+sqrt_z = sqrt(z)
+```
+::::
+:::
+
+The program [pycodestyle](https://pypi.org/project/pycodestyle/) [[4]](#/resources) checks if you are following the rules:
+
+```
+example.py:2:5: E225 missing whitespace around operator
+example.py:3:4: E111 indentation is not a multiple of four
+example.py:4:14: E211 whitespace before '('
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  In Python there is a similar program called pycodestyle that checks the PEP 8 style I mentioned. Here's the same program as in R, more or less, and the output for pycodestyle below.
+  </div>
+</aside>
+
+---
+
+Sometimes you knew what the code does when you wrote it, but a few months later...
+
+```r
+loc<-c(137.5, -4.7)
+loc2<-c(77.5, 18.1)
+dat<-read.csv('locations.csv')
+d=2*3389.5*asin(sqrt(
+sin((dat$lat*pi/180-loc[2]*pi/180)/2)^2
++cos(dat$lat*pi/180)*cos(loc[2]*pi/180)
+*sin((dat$lon*pi/180-loc[1]*pi/180)/2)^2))
+d2=2*3389.5*asin(sqrt(
+sin((dat$lat*pi/180-loc2[2]*pi/180)/2)^2
++cos(dat$lat*pi/180)*cos(loc2[2]*pi/180)
+*sin((dat$lon*pi/180-loc2[1]*pi/180)/2)^2))
+#dat$nrst=-1
+dat$nrst=0
+for(i in 1:nrow(dat)){
+if(d[i]<d2[i])
+dat$nrst[i]<-1
+else
+dat$nrst[i]<-2
+}
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Now I thought I'd show an example in R with a lot going on at the same time.
+
+  Imagine you wrote this program a few months ago, can you figure out what it's doing?
+
+  But look, there are these vectors called loc and loc2, what are those? What's this weird number 3389.5? What does nrst stand for?
+
+  There's this repeated bit with small changes too, that violates the D R Y principle. There are some multiplications by pi over 180, maybe that's a conversion from degrees to radians.
+
+  There are lots of smart cookies in the audience, so you might have some idea. You might be able to guess, but you shouldn't have to.
+
+  There are also some style issues here.
+  </div>
+</aside>
+
+---
+
+```r
+MARS_RADIUS <- 3389.5  # in kilometres
+
+hav_deg <- function(x) sin(x * pi / 360) ^ 2
+cos_deg <- function(x) cos(x * pi / 180)
+mars_haversine_dist <- function(locations, origin) {
+  with(locations, {
+    2 * MARS_RADIUS * asin(sqrt(
+      hav_deg(latitude - origin['latitude'])
+      + cos_deg(latitude) * cos_deg(origin['latitude'])
+      * hav_deg(longitude - origin['longitude'])
+    ))
+  })
+}
+
+curiosity_location <- c(longitude = 137.5, latitude = -4.7)
+perseverance_location <- c(longitude = 77.5, latitude = 18.1)
+
+locations <- read.csv('locations.csv')
+curiousity_dist <- mars_haversine_dist(locations, curiosity_location)
+perseverance_dist <- mars_haversine_dist(locations, perseverance_location)
+
+locations$nearest_rover <- 'none'
+for (i in 1 : nrow(locations)) {
+  if (curiousity_dist[i] < perseverance_dist[i]) {
+    locations$nearest_rover[i] <- 'curiousity'
+  } else {
+    locations$nearest_rover[i] <- 'perseverance'
+  }
+}
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Now here's a cleaned-up version, luckily I wrote this program a few days ago, not months ago, so I know what it does.
+
+  Well the weird number now has a name, it's called MARS_RADIUS. That's a good hint.
+
+  Now there's a function called mars_haversine_dist. Ahhh, so that computes a distance on Mars using the haversine formula. The repetition is gone for the conversions to radians too.
+
+  Now the location variables have better names, curiousity location and perseverance location. These are the locations of two Mars rovers. Actually Perseverance isn't on Mars yet but it's going to land here.
+
+  And now is we scroll down and look at the end, it might be a bit clearer that we have a table of locations ON MARS, and we are finding the distance between these locations and the rovers, then finding the closest rover.
+
+  All this is relatively easy to figure out because the code uses nice names for everything, doesn't repeat itself, and has a logical layout. If you read this code years from now, there's a good chance you will understand its purpose, at least partly.
+  </div>
+</aside>
+
+## More clean code tips
+
+- Code for correctness and readability first.
+- Comments are great, but it's better if the code is obvious enough not to need comments.
+- Shorter isn't necessarily better---short programs don't run any faster!
+- Tab completion in your editor means you don't have to type longer function and variable names every time.
+- Picking good names for things is hard, but it's worth the effort.
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So that's about it for clean code. It helps you understand your code, which helps you notice your assumptions, which helps you avoid bugs.
+
+  I've put some further tips for you to read in your own time. I'll just highlight the first one, that you should code for readability and correctness first. Other concerns like speed can come later.
+  </div>
+</aside>
+
+# Strategy 2: Defensive programming...
+
+...or, dead programs tell no lies [[5]](#/resources).
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Okay, now our second strategy, defensive programming. There's a great saying about this called "dead programs tell no lies" from a book called The Pragmatic Programmer by Thomas and Hunt. Let's see what this means.
+  </div>
+</aside>
+
+## A tale of two errors...
+
+```{r, echo = FALSE}
+y <- round(rnorm(5), 2)
+y[2] <- NA
+```
+
+::: {.container}
+:::: {.col}
+```{r}
+n <- length(y)
+sigma <- 1
+log_likelihood <- (
+  - n * log(2 * pi) / 2
+  - n * log(sigma)
+  - sum(y ^ 2 / sigma ^ 2) / 2
+)
+bic <- log(n) - 2 * log_likelihood
+print(bic)
+```
+
+No explicit error, but you probably don't want that value to be `NA`. What's the root cause?
+::::
+:::: {.col}
+```r
+dat <- data.frame(x = 1 : 10)
+dat$y <- sin(df$x)
+fit <- lm(y ~ x, data = dat)
+print(coef(fit))
+plot(dat$x, fitted(dat$y))
+```
+
+```
+## Error in df$x: object of type
+##   'closure' is not subsettable
+```
+
+Explicit error; annoying, but offending line is obvious.
+::::
+:::
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So I've put two R programs here, one on the left, one on the right. On the left it's calculating a Gaussian log likelihood of some vector y with standard deviation sigma, then a BIC value. And look, we got the dreaded NA answer, which is typically a missing value.
+
+  There's no explicit error here, no line failed. So you have to figure out the root cause. Luckily at least we noticed the NA.
+
+  Now on the right, there's code with another problem. And instead of a bad answer, the code threw an error. In fact a classic R error. Now in a lot of ways this is a much nicer error than on the left because you know the offending line immediately. It threw an error.
+
+  This is what is meant by dead programs tell no lies. Code that actually stops because of an error is better than code that continues to run and gives the wrong answer.
+  </div>
+</aside>
+
+## Dead programs tell no lies
+
+Defensive programming can be used when you're aware you're making an assumption. The idea is to intentionally throw an error when an assumption found to be false.
+
+Most languages have functions to help you do this.
+
+<strong>This way, you don't have to search for the offending line.</strong>
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  The idea of defensive programming is to harness the previous insight intentionally.
+
+  You can use it when you KNOW you're making an assumption. The idea is to make the code throw an error when the assumption is violated.
+
+  Most languages have functions to help with this, we'll see those shortly. Like in the examples before, this means you don't have to go searching for the problem.
+  </div>
+</aside>
+
+---
+
+Example: the exponential covariance function,
+
+$$
+  C(\mathbf{x}, \mathbf{x}') \equiv \exp\left( -\frac{||\mathbf{x} - \mathbf{x}'||}{l} \right)
+$$
+
+where $l > 0$.
+
+In R, you can use the **`stopifnot`** function:
+
+```r
+# Given a vector or matrix x, return the covariance matrix based on the
+# exponential covariance function
+cov_exponential <- function(x, length_scale) {
+  stopifnot(length_scale > 0)
+  exp(-fields::rdist(x) / length_scale)
+}
+
+cov_exponential(y, -1)
+```
+
+```
+## Error in cov_exponential(y, -1): length_scale > 0 is not TRUE
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Here's a statistical example in R. At the top I've given the definition of the exponential covariance function, between two points x and x prime. One of the things you will notice is that it has one parameter, l, called the length scale, and it must be greater than zero.
+
+  And below is some R code that implements it, as the comment says. Now the first line of the function cov_exponential has a line using an R function called `stopifnot`. This function will throw an error if the expression inside it is false.
+
+  The error is very informative, as you can see. Now if you notice, without this stopifnot expression, the function would blindly accept a negative length and return a number. But you know up front that the length scale should be positive. So if you ever accidently pass a number in that's negative, you're find out straight away.
+  </div>
+</aside>
+
+---
+
+In Python, you can use the **`assert`** keyword:
+
+```python
+import numpy as np
+
+def cov_exponential(x, length_scale):
+    '''Given a vector or matrix x, return the covariance matrix based on the
+    exponential covariance function'''
+    assert length_scale > 0, 'length_scale must be positive'
+    return np.exp(-np.linalg.norm(x) / length_scale)
+
+cov_exponential(y, -1)
+```
+
+```
+Traceback (most recent call last):
+  File "example.py", line 7, in <module>
+    cov_exponential(y, -1)
+  File "example.py", line 4, in cov_exponential
+    assert length_scale > 0, 'length_scale must be positive'
+AssertionError: length_scale must be positive
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  In python there is an equivalent keyword called assert. Here's the exact same program written in Python. Again if you call the function with a negative length scale, you get an error immediately.
+  </div>
+</aside>
+
+## Back to the tale of two errors
+
+```r
+stopifnot(all(!is.na(y)))
+n <- length(y)
+sigma <- 1
+log_likelihood <- (
+  - n * log(2 * pi) / 2
+  - n * log(sigma)
+  - sum(y ^ 2 / sigma ^ 2) / 2
+)
+bic <- log(n) - 2 * log_likelihood
+print(bic)
+```
+
+```
+## Error: all(!is.na(y)) is not TRUE
+```
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So just to return to our tale of two errors, the silent failure example. Well some debugging showed that the error was due to a missing value in the input vector y. If we add this first line using stopfinot, we can be alerted to the error before it happens.
+  </div>
+</aside>
+
+## More defensive programming tips
+
+- You won't always know what assumptions you're making implicitly immediately.
+- But! when your code breaks, add a `stopifnot` or `assert` to catch it next
+  time.
+- Don't feel the need to check *everything*, just the most important parts.
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  Here are some further tips on defensive programming.
+
+  The first thing is, unfortunately, you don't always know what assumptions you're actually making. There are lots of ways to break code.
+
+  But when you do notice a problem and figure out the root cause, you can go back and add a `stopifnot` or `assert` to catch it next time. That way your code gets more robust.
+
+  And a final point, don't feel the need to check every tiny assumptions. Just the most important ones, and the ones that end up catching you.
+  </div>
+</aside>
+
+# Other strategies
+
+- Automated testing. See:
+  - Wikipedia on **unit testing** [[6]](#/resources)
+  - The **`testthat`** package in R [[7]](#/resources)
+  - The **`pytest`** framework for Python [[8]](#/resources)
+- Internal peer review:
+  - Can a coauthor or a friend **read your code** for you?
+- Automated checking for common bugs:
+  - The **`pylint`** program can do this for Python [[9]](#/resources).
+  - The **`lintr`** package does a little bit of this [[3]](#/resources).
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  So those are the two strategies, clean code and defensive programming.
+
+  There are a few more that I don't have time to go into. The main ones are automated testing, which means writing programs to check your programs. There are lot of resources on this, some are given here.
+
+  Another idea is to do some internal peer review by asking a coauthor to read your code. Of course, you'll probably want the code to be nice and clean before you do!
+
+  Finally there are some cool and useful tools around that can spot some bugs automatically. They aren't that smart but they are better than nothing, I've listed them.
+  </div>
+</aside>
+
+# Conclusion
+
+Bugs can taint otherwise great research, and peer review (probably) won't catch them.
+
+Some easy-to-follow strategies can help you avoid some bugs. Practice makes perfect!
+
+Sadly, though, there will always be more bugs. **If you find a way to avoid them all, please tell me!**
+
+<span style="font-size: 1.5em">Thanks everyone!</span>
+
+<aside class="notes">
+  <div style="font-size: 0.6em">
+  And that's all I have for you, so I'll sum up.
+
+  Bugs can taint otherwise great research, formal peer review often won't catch them for you.
+
+  There are some easy to follow strategies to help you. They get easier and more effective as you practice, too.
+
+  Of course, the sad fact of the matter is that there will always be more bugs. There are just too many ways things can go wrong. But that said, if you do find a way to avoid them all, please let me know!
+
+  And that's all, thank you everyone. And on the last page I have some resources.
+  </div>
+</aside>
+
+# Resources
+
+<div style="text-align: left; font-size: 0.6em">
+  [1] Wickham, H., (2021). *The tidyverse Style Guide*. Published online at [https://style.tidyverse.org/](https://style.tidyverse.org/). <br />
+  [2] van Rossum, G., Warsaw, B., and Coghlan, N. PEP 8---Style Guide for Python Code. [https://www.python.org/dev/peps/pep-0008/](https://www.python.org/dev/peps/pep-0008/), last accessed 2021-02-16. <br />
+  [3] Hester, J., Angly, F., and Hyde, R. (2020). lintr: A 'Linter' for R Code. R package version 2.0.1. [https://CRAN.R-project.org/package=lintr](https://CRAN.R-project.org/package=lintr). <br />
+  [4] Rocholl, J. and Lee, I., and other contributors. pycodestyle---Python Style Guide Checker. [https://pypi.org/project/pycodestyle/](https://pypi.org/project/pycodestyle/). <br />
+  [5] Thomas, D., Hunt, A. (2019). *The Pragmatic Programmer: Your Journey to Mastery* (20th ed.). Addison-Wesley Professional, Boston, MA. <br />
+  [6] Wikipedia contributors. (2021, January 23). Unit Testing. In *Wikipedia, The Free Encyclopedia*. Retrieved 00:49, February 17, 2021, from https://en.wikipedia.org/w/index.php?title=Unit_testing&oldid=1002146431<br />
+  [7] Wickham, H., Bryan, J. (2021). *R Packages* (2nd ed.). Published online at [https://r-pkgs.org/index.html](https://r-pkgs.org/index.html). <br />
+  [8] Krekel, H., and other contributors, (2021). pytest. [https://docs.pytest.org/en/stable/](https://docs.pytest.org/en/stable/). <br />
+  [9] Logilab, (2021). pylint. [https://www.pylint.org/](https://www.pylint.org/).
+</div>
